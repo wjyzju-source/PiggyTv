@@ -21,6 +21,8 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2        # 云端 macOS 编译机（Xcode 预装）
     environment:
+      groups:
+        - testflight
       xcode: "16.4"                   # 需 Xcode 16+（Swift 6）才能编译 AMSMB2
       vars:
         # 工程根目录（相对仓库根）：
