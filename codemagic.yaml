@@ -142,11 +142,19 @@ workflows:
       - $PROJECT_ROOT/build/TvSMBPlayer.xcarchive/**/*.app
       - $PROJECT_ROOT/build/export/*.ipa
     publishing:
-      app_store_connect:
-        apple_id: you@example.com                 # ← 改成你的 Apple ID
-        password_key: APP_STORE_CONNECT_APP_SPECIFIC_PASSWORD
-        app_id: $APP_STORE_APP_ID
-        submit_to_testflight: true
+      # —— 说明 ——
+      # 当前不自动上传 TestFlight，避免因未配置真实凭据导致配置校验失败。
+      # 若要启用"构建后自动提交 TestFlight"，把下面这段（含 app_store_connect）加回 publishing，
+      # 并满足 Codemagic 的硬性要求（缺一不可）：
+      #   1. apple_id 填真实 Apple ID（邮箱）
+      #   2. password_key 指向"App 专用密码"的环境变量名，且该变量已定义
+      #      （在 appleid.apple.com 生成 App 专用密码，存为 Codemagic 环境变量，例如 APP_SPECIFIC_PASSWORD）
+      #   3. app_id 填 App Store Connect 里 App 的数字 ID
+      # app_store_connect:
+      #   apple_id: your_real_apple_id@example.com
+      #   password_key: APP_SPECIFIC_PASSWORD
+      #   app_id: $APP_STORE_APP_ID
+      #   submit_to_testflight: true
       email:
         recipients:
           - you@example.com
