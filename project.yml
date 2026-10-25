@@ -1,0 +1,32 @@
+# XcodeGen 可选配置文件
+# 如果你安装了 XcodeGen（brew install xcodegen），可用它一键生成 .xcodeproj，免去手动建工程：
+#   cd ATVSMBPlayer && xcodegen generate
+# 然后打开生成的 TvSMBPlayer.xcodeproj 即可。
+# 不想装 XcodeGen 的，请按 README.md 的手动步骤操作。
+name: TvSMBPlayer
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    tvOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  AMSMB2:
+    url: https://github.com/amosavian/AMSMB2
+    from: 4.0.3
+targets:
+  TvSMBPlayer:
+    type: application
+    platform: tvOS
+    sources:
+      - path: TvSMBPlayer
+    dependencies:
+      - package: AMSMB2
+        product: AMSMB2
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TvSMBPlayer/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TvSMBPlayer/TvSMBPlayer.entitlements
+        TARGETED_DEVICE_FAMILY: 3
+    scheme:
+      testTargets: []
