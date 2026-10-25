@@ -1,0 +1,155 @@
+# ============================================================
+# Codemagic CI/CD 配置 —— Apple TV (tvOS) SMB 4K 流媒体播放器
+#
+# 使用方法：
+#   1. 把整个工程推送到 Git 仓库（GitHub / GitLab / Bitbucket）。
+#   2. 在 Codemagic 控制台绑定该仓库。
+#   3. 推送后选择下方任一工作流即可在云端编译。
+#
+# 工作流：
+#   ① tvos-build       —— 编译出 tvOS 模拟器 .app，无需签名，开箱即用，用于验证代码能否编译。
+#   ② tvos-distribute  —— 签名打包（真机安装 / TestFlight / App Store），需先配置账号（见文末注释）。
+#
+# 云端会先自动执行 `brew install xcodegen`，再用 project.yml 生成工程，最后 xcodebuild 编译。
+# ============================================================
+
+workflows:
+
+  # ---------- ① 编译（模拟器版，无需签名，开箱即用） ----------
+  tvos-build:
+    name: Build tvOS App (unsigned, simulator)
+    max_build_duration: 60
+    instance_type: mac_mini_m2        # 云端 macOS 编译机（Xcode 预装）
+    environment:
+      xcode: "16.4"                   # 需 Xcode 16+（Swift 6）才能编译 AMSMB2
+      vars:
+        # 工程根目录（相对仓库根）：
+        #  - 若仓库根目录就是工程目录（含 project.yml），保持 "."
+        #  - 若仓库根下还套了一层 ATVSMBPlayer 文件夹，改为 "ATVSMBPlayer"
+        PROJECT_ROOT: "."
+        XCODE_SCHEME: "TvSMBPlayer"
+        XCODE_CONFIG: "Debug"
+    scripts:
+      - name: 安装 XcodeGen 并校验工程根目录
+        script: |
+          set -e
+          brew install xcodegen || true
+          if [ ! -f "$PROJECT_ROOT/project.yml" ]; then
+            echo "❌ 未在 \$PROJECT_ROOT 找到 project.yml，请检查该变量的值"
+            exit 1
+          fi
+          echo "✅ 工程根目录: $PROJECT_ROOT"
+      - name: 生成 Xcode 工程
+        script: |
+          set -e
+          cd "$PROJECT_ROOT"
+          xcodegen generate
+          ls -la TvSMBPlayer.xcodeproj
+      - name: 编译 tvOS 模拟器包（无需签名）
+        script: |
+          set -e
+          cd "$PROJECT_ROOT"
+          xcodebuild \
+            -project "TvSMBPlayer.xcodeproj" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration "$XCODE_CONFIG" \
+            -destination 'generic/platform=tvOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+    artifacts:
+      - $PROJECT_ROOT/build/Build/Products/Debug-appletvosimulator/*.app
+      - $PROJECT_ROOT/build/Build/Products/**/*.app
+    publishing:
+      email:
+        recipients:
+          - you@example.com           # ← 改成你的邮箱，构建结果会邮件通知
+        notify:
+          success: true
+          failure: true
+
+  # ---------- ② 签名版（真机 / TestFlight / App Store） ----------
+  # 使用前配置：
+  #   1. Codemagic → Integrations → App Store Connect 添加 API Key，引用名记为 Codemagic_API_Key
+  #   2. 修改下方 BUNDLE_ID / APP_STORE_APP_ID / apple_id
+  #   3. 若要在 App Store Connect 发布，需填写本地网络用途说明（NSLocalNetworkUsageDescription 已在工程里）
+  tvos-distribute:
+    name: Build signed tvOS (TestFlight)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic_API_Key
+    environment:
+      xcode: "16.4"
+      vars:
+        PROJECT_ROOT: "."
+        XCODE_SCHEME: "TvSMBPlayer"
+        XCODE_CONFIG: "Release"
+        BUNDLE_ID: "com.example.TvSMBPlayer"      # ← 改成你的 bundle id
+        APP_STORE_APP_ID: "1234567890"            # ← 改成 App Store Connect 里 App 的数字 ID
+    scripts:
+      - name: 安装 XcodeGen 并生成工程
+        script: |
+          set -e
+          brew install xcodegen || true
+          cd "$PROJECT_ROOT"
+          xcodegen generate
+      - name: 配置签名证书与描述文件
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --platform "TVOS" \
+            --type "IOS_APP_STORE" \
+            --create
+          keychain add-certificates
+      - name: 生成导出选项并归档
+        script: |
+          set -e
+          cd "$PROJECT_ROOT"
+          cat > exportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild \
+            -project "TvSMBPlayer.xcodeproj" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration "$XCODE_CONFIG" \
+            -destination 'generic/platform=tvOS' \
+            -archivePath "build/TvSMBPlayer.xcarchive" \
+            -allowProvisioningUpdates \
+            archive
+      - name: 导出 IPA
+        script: |
+          set -e
+          cd "$PROJECT_ROOT"
+          xcodebuild -exportArchive \
+            -archivePath "build/TvSMBPlayer.xcarchive" \
+            -exportOptionsPlist "exportOptions.plist" \
+            -exportPath "build/export"
+    artifacts:
+      - $PROJECT_ROOT/build/TvSMBPlayer.xcarchive/**/*.app
+      - $PROJECT_ROOT/build/export/*.ipa
+    publishing:
+      app_store_connect:
+        apple_id: you@example.com                 # ← 改成你的 Apple ID
+        password_key: APP_STORE_CONNECT_APP_SPECIFIC_PASSWORD
+        app_id: $APP_STORE_APP_ID
+        submit_to_testflight: true
+      email:
+        recipients:
+          - you@example.com
+        notify:
+          success: true
+          failure: true

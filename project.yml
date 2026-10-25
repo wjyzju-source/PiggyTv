@@ -1,8 +1,10 @@
-# XcodeGen 可选配置文件
-# 如果你安装了 XcodeGen（brew install xcodegen），可用它一键生成 .xcodeproj，免去手动建工程：
+# XcodeGen 工程定义文件
+# 用 XcodeGen（brew install xcodegen）把本文件生成 TvSMBPlayer.xcodeproj：
 #   cd ATVSMBPlayer && xcodegen generate
-# 然后打开生成的 TvSMBPlayer.xcodeproj 即可。
-# 不想装 XcodeGen 的，请按 README.md 的手动步骤操作。
+# Codemagic 云端构建也会在编译前自动执行该命令（见 codemagic.yaml）。
+#
+# Info.plist 与 entitlements 由 XcodeGen 自动生成（info / entitlements 两个 key），
+# 保证云端构建时不会因为手动 plist 缺键而失败。
 name: TvSMBPlayer
 options:
   bundleIdPrefix: com.example
@@ -19,14 +21,26 @@ targets:
     platform: tvOS
     sources:
       - path: TvSMBPlayer
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
     dependencies:
       - package: AMSMB2
         product: AMSMB2
+    info:
+      path: TvSMBPlayer/Info.plist
+      properties:
+        NSLocalNetworkUsageDescription: 需要访问本地网络，以连接你的 NAS 服务器播放共享视频。
+        UILaunchScreen: {}
+        CFBundleShortVersionString: 1.0.0
+        CFBundleVersion: 1
+    entitlements:
+      path: TvSMBPlayer/TvSMBPlayer.entitlements
+      properties:
+        com.apple.security.network.client: true
     settings:
       base:
-        GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: TvSMBPlayer/Info.plist
-        CODE_SIGN_ENTITLEMENTS: TvSMBPlayer/TvSMBPlayer.entitlements
-        TARGETED_DEVICE_FAMILY: 3
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
     scheme:
       testTargets: []

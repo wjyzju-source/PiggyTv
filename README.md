@@ -104,7 +104,21 @@ target → `Signing & Capabilities` → `Team` 选择你的 Apple ID 团队。�
 
 ---
 
-## 七、遇到问题排查
+## 七、Codemagic 云端编译（无需本地 Mac 环境）
+
+仓库已内置 **`codemagic.yaml`**，工程定义用 **`project.yml`（XcodeGen）**，云端会自动 `brew install xcodegen` → 生成工程 → `xcodebuild` 编译。
+
+1. 把工程推到 Git（GitHub / GitLab / Bitbucket）。
+2. Codemagic 控制台绑定仓库。
+3. 选工作流运行：
+   - **`tvos-build`**：编译 tvOS 模拟器 `.app`，**无需签名**，开箱即用，用于验证代码能否编译通过。
+   - **`tvos-distribute`**：签名打包（真机 / TestFlight / App Store）。使用前需在 Codemagic 添加 **App Store Connect API Key** 集成，并改好 `BUNDLE_ID`、`APP_STORE_APP_ID`、`apple_id`（见 yaml 内注释）。
+
+> 仓库根目录若是工程目录（含 `project.yml`），保持 `PROJECT_ROOT: "."`；若仓库根下还套了一层 `ATVSMBPlayer` 文件夹，则把 `PROJECT_ROOT` 改为 `ATVSMBPlayer`。
+
+---
+
+## 八、遇到问题排查
 
 | 现象 | 处理 |
 |------|------|
@@ -114,6 +128,6 @@ target → `Signing & Capabilities` → `Team` 选择你的 Apple ID 团队。�
 | 能列出但播放黑屏/无声音 | 该封装格式或音轨 AVPlayer 不支持，换 MP4(H.264/HEVC) 片源测试 |
 | 编译报错 | 把完整报错信息发给我，我来修 |
 
-## 八、如何把报错发给我
+## 九、如何把报错发给我
 
 在 Xcode 里 `⌘B` 编译，选中左侧错误列表，把红色错误信息完整复制，连同是"真机还是模拟器"一起发给我即可。
